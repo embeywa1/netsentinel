@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetSentinel — Threat & IP Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: monospace; }
+    </style>
+</head>
+<body class="min-h-screen p-6 flex flex-col items-center justify-center">
+
+    <div class="max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-2xl space-y-6">
+        
+        <!-- Header -->
+        <div class="border-b border-slate-800 pb-4">
+            <h1 class="text-2xl font-bold text-cyan-400 flex items-center gap-2">
+                🛡️ NetSentinel <span class="text-xs bg-cyan-950 text-cyan-400 border border-cyan-800 px-2 py-0.5 rounded">v1.0</span>
+            </h1>
+            <p class="text-slate-400 text-sm mt-1">Real-time IP threat scoring & network intelligence proxy</p>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="flex gap-2">
+            <input id="ipInput" type="text" placeholder="Enter IP address (e.g. 8.8.8.8)" 
+                   class="flex-1 bg-slate-950 border border-slate-700 rounded px-4 py-2 text-slate-100 focus:outline-none focus:border-cyan-500">
+            <button onclick="scanIP()" 
+                    class="bg-cyan-600 hover:bg-cyan-500 font-bold px-6 py-2 rounded text-slate-950 transition-all">
+                SCAN IP
+            </button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="hidden text-center text-cyan-400 py-4">
+            Scanning network feeds & threat telemetry...
+        </div>
+
+        <!-- Error State -->
+        <div id="error" class="hidden text-red-400 bg-red-950/50 border border-red-800 p-3 rounded text-sm"></div>
+
+        <!-- Results Display -->
+        <div id="results" class="hidden space-y-4">
+            
+            <!-- Threat Gauge Header -->
+            <div class="flex justify-between items-center bg-slate-950 p-4 rounded border border-slate-800">
+                <div>
+                    <span class="text-xs text-slate-500 uppercase">IP Address</span>
+                    <h2 id="resIp" class="text-xl font-bold text-slate-100"></h2>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs text-slate-500 uppercase">Threat Confidence</span>
+                    <div id="scoreBadge" class="text-lg font-bold px-3 py-1 rounded text-center mt-1"></div>
+                </div>
+            </div>
+
+            <!-- Detail Grid -->
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div class="bg-slate-950 p-3 rounded border border-slate-800">
+                    <p class="text-slate-500">Location</p>
+                    <p id="resLoc" class="font-semibold text-slate-200 mt-1"></p>
+                </div>
+                <div class="bg-slate-950 p-3 rounded border border-slate-800">
+                    <p class="text-slate-500">ISP / Organization</p>
+                    <p id="resIsp" class="font-semibold text-slate-200 mt-1"></p>
+                </div>
+                <div class="bg-slate-950 p-3 rounded border border-slate-800">
+                    <p class="text-slate-500">ASN</p>
+                    <p id="resAsn" class="font-semibold text-slate-200 mt-1"></p>
+                </div>
+                <div class="bg-slate-950 p-3 rounded border border-slate-800">
+                    <p class="text-slate-500">Total Abuse Reports</p>
+                    <p id="resReports" class="font-semibold text-slate-200 mt-1"></p>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 text-right" id="resCache"></div>
+        </div>
+
+        <!-- ALWAYS VISIBLE COPYRIGHT FOOTER WITH GLOWING LINK -->
+        <div class="border-t border-slate-800 pt-4 text-center">
+            <p class="text-xs text-slate-400">
+                © 2026 
+                <a href="https://embeywa.lovable.app/" target="_blank" rel="noopener noreferrer" 
+                   class="text-cyan-400 font-semibold hover:text-cyan-300 underline transition-all duration-300"
+                   style="text-shadow: 0 0 10px rgba(34, 211, 238, 0.9), 0 0 20px rgba(34, 211, 238, 0.4);">
+                    Mildred Embeywa
+                </a>
+                | Nairobi, Kenya
+            </p>
+        </div>
+
+    </div>
+
+    <script>
+        document.getElementById('ipInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') scanIP();
+        });
+
+        async function scanIP() {
+            const ip = document.getElementById('ipInput').value.trim();
+            if (!ip) return;
+
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('error').classList.add('hidden');
+
+            try {
+                const res = await fetch(`/api/lookup?ip=${ip}`);
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.error || 'Failed to lookup IP');
+
+                document.getElementById('resIp').innerText = data.ip;
+                document.getElementById('resLoc').innerText = `${data.city}, ${data.country}`;
+                document.getElementById('resIsp').innerText = data.isp;
+                document.getElementById('resAsn').innerText = data.asn;
+                document.getElementById('resReports').innerText = data.totalReports;
+
+                const badge = document.getElementById('scoreBadge');
+                badge.innerText = `${data.abuseScore}%`;
+                if (data.abuseScore > 50) {
+                    badge.className = 'text-lg font-bold px-3 py-1 rounded bg-red-950 text-red-400 border border-red-800';
+                } else if (data.abuseScore > 0) {
+                    badge.className = 'text-lg font-bold px-3 py-1 rounded bg-yellow-950 text-yellow-400 border border-yellow-800';
+                } else {
+                    badge.className = 'text-lg font-bold px-3 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800';
+                }
+
+                document.getElementById('resCache').innerText = data.cached ? '⚡ Served from cache' : '🌐 Fetched live from network feeds';
+                document.getElementById('results').classList.remove('hidden');
+            } catch (err) {
+                document.getElementById('error').innerText = err.message;
+                document.getElementById('error').classList.remove('hidden');
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
